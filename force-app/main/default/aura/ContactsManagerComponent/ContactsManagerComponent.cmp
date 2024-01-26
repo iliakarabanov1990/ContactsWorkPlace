@@ -1,0 +1,145 @@
+<aura:component controller="ContactListController" implements="flexipage:availableForAllPageTypes" access="global" >
+    
+     <!--force:appHostable,
+			forceCommunity:availableForAllPageTypes,
+			flexipage:availableForRecordHome,
+			force:hasRecordId,
+			force:lightningQuickAction-->
+    
+    <aura:attribute name="data" type="Contact[]"/>
+    <aura:attribute name="columns" type="List"/>
+    <aura:attribute name="sortDirection" type="String" default="asc"/>
+    <aura:attribute name="defaultSortDirection" type="String" default="asc"/>
+    <aura:attribute name="sortBy" type="String" default="Name"/>
+    <aura:attribute name="filteredData" type="List"/>
+    <aura:attribute name="filter" type="String"/>
+    <aura:attribute name="searchStr" type="String"/>  
+    <aura:attribute name="pageNumber" type="Integer" default="1"/>
+    <aura:attribute name="pageSize" type="Integer" default="10"/>
+    <aura:attribute name="isLastPage" type="Boolean" default="false"/>
+    <aura:attribute name="dataSize" type="Integer" default="0"/> 
+    <aura:attribute name="isOpen" type="boolean" default="false"/>
+    <aura:attribute name="visibleErr" type="boolean" default="false"/>
+    <aura:attribute name="messErr" type="String" default=""/>
+    <aura:attribute name="visibleSucc" type="boolean" default="false"/>
+    <aura:attribute name="messSucc" type="String" default=""/>
+     
+    <aura:handler name="init" action="{!c.init}" value="{!this}"/>
+    
+    <lightning:spinner class="spinner" aura:id="spinner"/>
+        
+    <aura:if isTrue="{!v.visibleErr}">
+    	<div style="position:absolute;top:1rem;left:1rem;right:10rem">
+            <span class="slds-assistive-text">error</span>
+       		<div class="slds-notify_container slds-is-relative">
+             	<div class="slds-notify slds-notify_toast slds-theme_error" role="error">
+             		 <span class="slds-icon_container slds-icon-utility-error slds-m-right_small slds-no-flex slds-align-top">
+                 		<lightning:icon style="--sds-c-icon-color-foreground-default: white" iconName="utility:error" alternative-text="error" variant="base" size="large"></lightning:icon>    
+              		</span>
+               		<div class="slds-notify__content">
+                     	<h2 class="slds-text-heading_small">{!v.messErr}</h2>
+               		</div>
+              		<div class="slds-notify__close">
+                		<button class="slds-button slds-button_icon slds-button_icon-inverse" title="Close">
+                      		<lightning:buttonIcon iconName="utility:close" class="slds-modal__close white-button" onclick="{!c.handleErrCancel}"/>
+                       		<span class="slds-assistive-text">Close</span>
+                 		</button>
+                 	</div>
+            	</div>
+          	</div>
+        </div>
+  	</aura:if>
+      
+  	<aura:if isTrue="{!v.visibleSucc}">
+    	<div style="position:absolute;top:1rem;left:1rem;right:10rem;">
+       		<div class="slds-notify_container slds-is-relative">
+          		<div class="slds-notify slds-notify_toast slds-theme_success" role="status">
+                    <span class="slds-assistive-text">success</span>
+                    <span class="slds-icon_container slds-icon-utility-success slds-m-right_small slds-no-flex slds-align-top">
+     					<lightning:icon style="--sds-c-icon-color-foreground-default: white" iconName="utility:success" alternative-text="success" variant="info" size="large" ></lightning:icon>
+   					</span>
+                    <div class="slds-notify__content">
+                      <h2 class="slds-text-heading_large ">{!v.messSucc}</h2>
+                    </div>
+                    <div class="slds-notify__close">
+                      <button class="slds-button slds-button_icon slds-button_icon-inverse" title="Close">
+                       	<lightning:buttonIcon iconName="utility:close" class="slds-modal__close white-button" onclick="{!c.handleSuccCancel}"/>
+                        <span class="slds-assistive-text">Close</span>
+                      </button>
+            		</div>
+            	</div>
+            </div>
+   		</div>
+  	</aura:if>
+    
+    <aura:if isTrue="{!v.isOpen}">
+    	<section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+        	<header class="slds-modal__header slds-modal__header_empty">                       
+             	<lightning:buttonIcon iconName="utility:close" class="slds-modal__close" onclick="{!c.handleNewContactCancel}"/>
+          	</header>
+          	<div class="slds-modal__container">      
+             	<!--
+				https://github.com/iliakarabanov1990/ContactsWorkPlace/tree/main/force-app/main/default/lwc/createContact-->
+             	<c:createContact onsave="{!c.handleNewContactSuccess}" oncancel="{!c.handleNewContactCancel}"></c:createContact>
+       		</div>
+        </section>
+     	<div class="slds-backdrop slds-backdrop_open"></div>
+   </aura:if>
+    
+	<div class="slds-brand-band slds-brand-band_cover slds-brand-band_large wrapper-brand-band">              
+    	<div class="slds-card slds-card_boundary slds-grid slds-grid--vertical wrapper-card">
+        	
+            <header class="slds-page-header">               
+                <div class="slds-grid slds-grid_align-spread" role="banner">
+               		<h1 class="slds-page-header__name-title slds-text-heading--large">Contacts Manager</h1>                 
+              		<lightning:button variant="brand" label="New Contact" title="New Contact" onclick="{! c.handleNewContactButton}"/>
+         		</div>          
+        		<div class="slds-grid slds-grid_align-end slds-m-bottom_small">       
+                    <div class="slds-col slds-m-right_large">
+                        <lightning:input type="search" onchange="{!c.handleFilter}" value="{!v.filter}" label="Filter on current page"/>  
+                    </div>
+                    <div class="slds-grid slds-grid_vertical-align-center">
+                        <div class="slds-col slds-align-bottom">
+                            <lightning:input type="search" onchange="{!c.handleClear}" value="{!v.searchStr}" label="Search by Name"/>
+                        </div>
+                        <div class="slds-col slds-align-bottom">
+                            <lightning:button variant="brand-outline" label="Search" title="Search" onclick="{! c.handleSearch}"/>            	
+                        </div>
+                    </div>   
+      			</div> 
+      		</header>
+          
+      		<section style="height: calc(63vh)">
+            	<lightning:datatable
+                                 columns="{!v.columns}"
+                                 data="{!v.filteredData}"
+                                 keyField="id"        
+                                 defaultSortDirection="{!v.defaultSortDirection}"
+                                 sortedDirection="{!v.sortDirection}"
+                                 sortedBy="{!v.sortBy}"
+                                 onsort="{!c.handleSort}"
+                                 hideCheckboxColumn="true"
+                                 onrowaction="{!c.handleRowAction}"/>
+       		</section> 
+            
+      		<footer>  
+           		<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">               
+                 	<div class="slds-col">
+                       <p>Page {!v.pageNumber} | Showing records from {! ((v.pageNumber-1)*v.pageSize)+' to '+((v.pageNumber-1)*v.pageSize+v.dataSize)}</p>
+                   	</div>
+               		<div class="slds-grid">
+                    	<div class="slds-col">
+                         	<lightning:button label="Prev" iconName="utility:chevronleft" iconPosition="left"
+                                     onclick="{!c.handlePrev}" disabled="{!v.pageNumber == 1}"/>  
+                    	</div>
+                   		<div class="slds-col">
+                        	<lightning:button label="Next" iconName="utility:chevronright" iconPosition="right"
+                                     onclick="{!c.handleNext}" disabled="{!v.isLastPage}"/>  
+                  		</div>
+              		</div>
+           		</div>  
+    		</footer>
+            
+    	</div>
+    </div>
+</aura:component>
